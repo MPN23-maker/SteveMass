@@ -1636,6 +1636,143 @@
     "OKAY",
     "GREAT"
    ]
+  },
+  {
+   "weekEnding": "2026-08-07",
+   "touchpoints": {
+    "meetup": {
+     "scheduled": false,
+     "attended": false
+    },
+    "checkin": {
+     "scheduled": true,
+     "attended": true
+    },
+    "friday": {
+     "scheduled": true,
+     "attended": true
+    }
+   },
+   "dailyCounts": [
+    4,
+    2,
+    3,
+    4,
+    6,
+    6,
+    5
+   ],
+   "dailyMoods": [
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT"
+   ]
+  },
+  {
+   "weekEnding": "2026-10-09",
+   "touchpoints": {
+    "meetup": {
+     "scheduled": true,
+     "attended": true
+    },
+    "checkin": {
+     "scheduled": true,
+     "attended": true
+    },
+    "friday": {
+     "scheduled": true,
+     "attended": true
+    }
+   },
+   "dailyCounts": [
+    6,
+    6,
+    6,
+    0,
+    6,
+    6,
+    6
+   ],
+   "dailyMoods": [
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT"
+   ]
+  },
+  {
+   "weekEnding": "2026-10-16",
+   "touchpoints": {
+    "meetup": {
+     "scheduled": true,
+     "attended": true
+    },
+    "checkin": {
+     "scheduled": true,
+     "attended": true
+    },
+    "friday": {
+     "scheduled": true,
+     "attended": true
+    }
+   },
+   "dailyCounts": [
+    6,
+    6,
+    6,
+    0,
+    6,
+    6,
+    6
+   ],
+   "dailyMoods": [
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT"
+   ]
+  },
+  {
+   "weekEnding": "2026-10-23",
+   "touchpoints": {
+    "meetup": {
+     "scheduled": true,
+     "attended": true
+    },
+    "checkin": {
+     "scheduled": true,
+     "attended": true
+    },
+    "friday": {
+     "scheduled": true,
+     "attended": false
+    }
+   },
+   "dailyCounts": [
+    6,
+    6,
+    6,
+    0,
+    6,
+    6,
+    6
+   ],
+   "dailyMoods": [
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT",
+    "GREAT"
+   ]
   }
  ]
 };
@@ -1742,9 +1879,11 @@
             {
               const rows = await fetchWeeklyRows(name);
               if (Array.isArray(rows) && rows.length) {
-                const lastKnown = new Date(overrides[overrides.length - 1].weekEnding);
-                const newRows = rows.filter(r => new Date(r.weekEnding) > lastKnown);
-                combined = overrides.concat(newRows);
+                // Hand-entered weeks win. Feed weeks they do not cover stay, sorted by date.
+                const covered = new Set(overrides.map(o => String(o.weekEnding).slice(0, 10)));
+                const newRows = rows.filter(r => !covered.has(String(r.weekEnding).slice(0, 10)));
+                combined = overrides.concat(newRows)
+                  .sort((a, b) => String(a.weekEnding).localeCompare(String(b.weekEnding)));
               }
             }
           } catch (err) {
