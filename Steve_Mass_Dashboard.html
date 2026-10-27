@@ -2185,7 +2185,7 @@
     const foundation = MEMBER_HISTORY[name];
     if (foundation && foundation.foundationLocked) {
       const overrides = CREDIBILITY_OVERRIDES[name];
-      let credibility = null;
+      let credibility = null, momentum = null, credTotal = 0;
       if (overrides && overrides.length) {
         // Manually-entered weeks are the base; any newer week already sitting
         // in the live Sheet feed gets appended on top, same merge pattern as
@@ -2208,7 +2208,17 @@
             console.error('Could not load live Credibility data yet:', err);
           }
         }
-        credibility = buildCredibilityFromOverrides(combined);
+        // Split by calendar: Credibility is the 13 weeks ending 7/24 on (weeks counted
+        // from credibilityStartDate), Momentum the next 13. Earlier weeks stay in Foundation.
+        const credStartMs = Date.parse((foundation.credibilityStartDate || '2026-07-20') + 'T00:00:00Z');
+        const inPhase = [[], [], []];
+        combined.forEach(o => {
+          const k = Math.floor((Date.parse(String(o.weekEnding).slice(0, 10) + 'T00:00:00Z') - credStartMs) / (7 * 86400000));
+          if (k >= 0 && k < 39) inPhase[Math.floor(k / 13)].push(o);
+        });
+        credibility = buildCredibilityFromOverrides(inPhase[0]);
+        momentum = buildCredibilityFromOverrides(inPhase[1]);
+        credTotal = inPhase[0].length + inPhase[1].length + inPhase[2].length;
       } else if (DATA_SOURCE_URL) {
         try {
           const res = await fetchMemberResponse(name);
@@ -2220,7 +2230,7 @@
           console.error('Could not load live Credibility data yet:', err);
         }
       }
-      return Object.assign({}, foundation, { credibility });
+      return Object.assign({}, foundation, { credibility, momentum, credTotal });
     }
     if (foundation) {
       if (LEGACY_HISTORY[name]) {
@@ -2367,7 +2377,7 @@
     // progress on any week they miss submitting — this ties the label to
     // actual submitted data instead, the same way Foundation's frozen 13
     // weeks already work.
-    const weekSinceCred = Math.max((cred && cred.weeklyData ? cred.weeklyData.length : 0), 1);
+    const weekSinceCred = Math.max(data.credTotal || (cred && cred.weeklyData ? cred.weeklyData.length : 0), 1);
     const PHASES2 = ['CREDIBILITY', 'MOMENTUM', 'GROWTH'];
     const PHASE_UNLOCK_DAY2 = { CREDIBILITY: 1, MOMENTUM: 91, GROWTH: 181 };
     function phaseForWeek2(w) {
@@ -2434,7 +2444,14 @@
       // Foundation's 13 rings are always the real, frozen record; Credibility's
       // rings fill in as live check-ins come in; Momentum/Growth stay empty
       // until each phase actually begins.
-      renderFullYearChain(data.weeklyData, cred.weeklyData, null, null);
+      if (data.momentum) {
+        const mStars = computeWeeklyStars(data.momentum.weeklyData, data.momentum.currentStreakDays, data.momentum.daysElapsed, data.momentum.disciplineCompletionPct);
+        renderStars('miniStarsMomentum-p', mStars.p, 13);
+        renderStars('miniStarsMomentum-c', mStars.c, 13);
+        renderStars('miniStarsMomentum-a', mStars.a, 13);
+        renderStars('miniStarsMomentum-s', mStars.s, 13);
+      }
+      renderFullYearChain(data.weeklyData, cred.weeklyData, data.momentum ? data.momentum.weeklyData : null, null);
     } else {
       ['p', 'c', 'a', 's'].forEach(k => renderStars('miniStarsCredibility-' + k, 0, 13));
       document.getElementById('disciplineValueCredibility').textContent = '—';
