@@ -2195,6 +2195,8 @@
       friday: wk.touchpoints.friday,
       disciplines: wk.dailyCounts.reduce((a, b) => a + b, 0),
       weekEnding: wk.weekEnding,
+      dailyCounts: wk.dailyCounts,
+      moodCount: (wk.dailyMoods || []).length,
       mood: wk.dailyMoods.slice().sort((a, b) =>
         wk.dailyMoods.filter(m => m === a).length - wk.dailyMoods.filter(m => m === b).length
       ).pop()
@@ -2360,7 +2362,44 @@
     return 0;
   }
 
+  // ---------- Star ratings (day based) ----------
+  // Every phase starts at 5 stars. Stars = 5 x percentage, rounded to the
+  // nearest half star, floor of 1. Only completed weeks count (7 days, 42
+  // disciplines each). A missed day is a day with no entry (count 0).
+  //   Procrastination = disciplines completed / 42 per week
+  //   Consistency     = days with 5 or 6 disciplines / days
+  //   Accountability  = days with an entry AND a mood / days
+  //   Structure       = days with an entry, a mood AND 5+ disciplines / days
+  function starsFromPct(p) {
+    return Math.max(1, Math.min(5, Math.round(Math.max(0, p) * 10) / 2));
+  }
+  function dayBasedStars(weeklyData) {
+    if (!weeklyData || !weeklyData.length) return { p: 5, c: 5, a: 5, s: 5 };
+    if (!weeklyData.every(w => Array.isArray(w.dailyCounts))) return null;
+    let days = 0, done = 0, strong = 0, accDays = 0, structDays = 0;
+    weeklyData.forEach(w => {
+      const c = w.dailyCounts;
+      const logged = c.filter(x => x > 0).length;
+      const strongDays = c.filter(x => x >= 5).length;
+      const moods = Math.min(w.moodCount || 0, logged);
+      const missingMood = logged - moods;
+      days += c.length;
+      done += c.reduce((a, b) => a + b, 0);
+      strong += strongDays;
+      accDays += moods;
+      structDays += Math.max(0, strongDays - missingMood);
+    });
+    return {
+      p: starsFromPct(done / (days * 6)),
+      c: starsFromPct(strong / days),
+      a: starsFromPct(accDays / days),
+      s: starsFromPct(structDays / days)
+    };
+  }
+
   function computeWeeklyStars(weeklyData, currentStreakDays, daysElapsed, disciplineCompletionPct) {
+    const dayStars = dayBasedStars(weeklyData);
+    if (dayStars) return dayStars;
     let touchpointsExpected = 0, touchpointsScheduled = 0, touchpointsAttended = 0;
     weeklyData.forEach(wk => {
       touchpointTypes.forEach(type => {
